@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>GoldVault Mobile App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { 50:'#f8fafc', 100:'#f1f5f9', 500:'#3B82F6', 600:'#2563eb', 700:'#1d4ed8', 800:'#1e40af', 900:'#1E3A5F' }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    
+    #mobile-frame { width: 100%; max-width: 414px; height: 100vh; max-height: 896px; background: #f8fafc; position: relative; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+    @media(min-width: 450px) { #mobile-frame { height: 850px; border-radius: 36px; border: 12px solid #1e293b; outline: 1px solid #cbd5e1; } }
+    
+    .screen { position: absolute; inset: 0; background: #f8fafc; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 10; padding-bottom: 72px; overflow-y: auto; overflow-x: hidden; }
+    .screen.active { opacity: 1; pointer-events: auto; z-index: 20; }
+    
+    #screen-splash, #screen-login { z-index: 50; padding: 0; }
+    
+    /* Bottom Navigation */
+    #bottom-nav { position: absolute; bottom: 0; left: 0; right: 0; height: 65px; background: white; border-top: 1px solid #e2e8f0; display: none; z-index: 40; box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.05); }
+    #bottom-nav.active { display: flex; }
+    .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; position: relative; }
+    .nav-btn i { font-size: 1.25rem; margin-bottom: 4px; transition: transform 0.2s; }
+    .nav-btn.active { color: #1E3A5F; }
+    .nav-btn.active i { transform: translateY(-2px); color: #3B82F6; }
+    .nav-btn.active::after { content: ''; position: absolute; bottom: 0; width: 40px; height: 3px; background: #3B82F6; border-radius: 3px 3px 0 0; }
+    
+    .gradient-header { background: linear-gradient(135deg, #1E3A5F, #3B82F6); }
+    .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); border: 1px solid #f1f5f9; }
+    .calc-header { background: #1E3A5F; color: white; padding: 24px 20px 48px 20px; text-align: center; border-radius: 0 0 24px 24px; }
+    
+    ::-webkit-scrollbar { width: 0px; background: transparent; }
+    
+    .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6); z-index: 100; display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+    .modal-overlay.open { display: flex; }
+    .modal-content { background: white; width: 90%; max-width: 340px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); padding: 20px; text-align: center; animation: slideUp 0.3s ease-out; }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* Custom Toast */
+    #mobile-toast { position: absolute; bottom: 85px; left: 20px; right: 20px; background: #1e293b; color: white; padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 10px; z-index: 200; opacity: 0; pointer-events: none; transform: translateY(20px); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+    #mobile-toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  </style>
+</head>
+<body>
+
+<div id="mobile-frame">
+  <!-- SPLASH SCREEN -->
+  <div id="screen-splash" class="screen active gradient-header flex items-center justify-center">
+    <div class="text-center text-white animate-pulse">
+      <i class="fa fa-building-columns text-5xl mb-4"></i>
+      <h1 class="text-3xl font-black tracking-tight">GoldVault</h1>
+    </div>
+  </div>
+
+  <!-- LOGIN SCREEN -->
+  <div id="screen-login" class="screen bg-white flex flex-col justify-center px-8 relative">
+    <div class="absolute top-0 left-0 right-0 h-48 gradient-header" style="border-radius: 0 0 50% 50% / 0 0 20% 20%;"></div>
+    
+    <div class="relative z-10 bg-white rounded-2xl p-6 card-shadow mt-10">
+      <div class="text-center mb-6">
+        <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-2xl mx-auto mb-3"><i class="fa fa-user-lock"></i></div>
+        <h2 class="text-2xl font-black text-navy-900">Sign In</h2>
+        <p class="text-xs text-gray-500 mt-1">Access your GoldVault portal</p>
+      </div>
+      
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1">Customer ID</label>
+          <div class="relative">
+            <span class="absolute left-3 top-3 text-gray-400"><i class="fa fa-id-card"></i></span>
+            <input type="text" value="ETPL92" class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:border-blue-500" readonly />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1">OTP / PIN</label>
+          <div class="relative">
+            <span class="absolute left-3 top-3 text-gray-400"><i class="fa fa-key"></i></span>
+            <input type="password" value="1234" class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:border-blue-500" />
+          </div>
+        </div>
+        <button onclick="login()" class="w-full gradient-header text-white font-bold py-3 rounded-lg shadow-md hover:opacity-90 transition mt-2">Secure Login <i class="fa fa-arrow-right ml-1"></i></button>
+      </div>
+    </div>
+    <div class="text-center mt-6 text-xs text-gray-400 font-medium">Bank-grade 256-bit encryption</div>
+  </div>
+
+  <!-- HOME SCREEN -->
+  <div id="nav-home" class="screen">
+    <div class="gradient-header text-white pt-10 pb-16 px-6 relative rounded-b-3xl">
+      <div class="flex justify-between items-start">
+        <div>
+          <div class="text-xs font-medium text-blue-100 uppercase tracking-wider mb-1">Welcome Back</div>
+          <div class="text-2xl font-black text-white">SHYAM.G</div>
+          <div class="text-xs mt-1 text-blue-200">Manage your gold loans easily.</div>
+        </div>
+        <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/30">
+          <i class="fa fa-wallet text-xl"></i>
+        </div>
+      </div>
+    </div>
+    
+    <div class="px-5 -mt-8 relative z-10 space-y-4 pb-6">
+      
+      <!-- Top Overview Cards -->
+      <div class="flex gap-3">
+        <div class="flex-1 bg-white rounded-xl p-4 card-shadow border-t-4 border-blue-500">
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Active Loans</div>
+          <div class="text-2xl font-black text-navy-900" id="ui-home-active-count">0</div>
+        </div>
+        <div class="flex-1 bg-white rounded-xl p-4 card-shadow border-t-4 border-emerald-500">
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Disbursed</div>
+          <div class="text-2xl font-black text-navy-900" id="ui-home-active-amount">₹0</div>
+        </div>
+      </div>
+      
+      <!-- Gold Rate Cards -->
+      <div class="bg-white rounded-xl p-4 card-shadow flex items-center gap-4 border-l-4 border-blue-500">
+        <div class="w-10 h-10 bg-blue-50 rounded-full flex flex-shrink-0 items-center justify-center text-blue-600"><i class="fa fa-arrow-trend-up"></i></div>
+        <div>
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Today's 916 Gold Rate</div>
+          <div class="text-lg font-black text-navy-900 tracking-tight">₹13,000 <span class="text-xs font-semibold text-gray-400">/g</span></div>
+        </div>
+      </div>
+      
+      <div class="bg-white rounded-xl p-4 card-shadow flex items-center gap-4 border-l-4 border-slate-400">
+        <div class="w-10 h-10 bg-slate-50 rounded-full flex flex-shrink-0 items-center justify-center text-slate-500"><i class="fa fa-scale-balanced"></i></div>
+        <div>
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Today's Ordinary Gold Rate</div>
+          <div class="text-lg font-black text-navy-900 tracking-tight">₹10,000 <span class="text-xs font-semibold text-gray-400">/g</span></div>
+        </div>
+      </div>
+      
+      <!-- Weight Card -->
+      <div class="bg-white rounded-xl p-4 card-shadow flex justify-between px-8 border border-slate-100">
+        <div class="text-center">
+          <div class="text-[10px] font-bold text-gray-400 uppercase mb-1 flex items-center justify-center gap-1"><i class="fa fa-circle-notch text-blue-500"></i> Net Weight</div>
+          <div class="text-sm font-bold text-navy-900" id="ui-home-weight">0.00 g</div>
+        </div>
+        <div class="w-px bg-gray-100"></div>
+        <div class="text-center">
+          <div class="text-[10px] font-bold text-gray-400 uppercase mb-1 flex items-center justify-center gap-1"><i class="fa fa-gem text-blue-500"></i> Stone Weight</div>
+          <div class="text-sm font-bold text-navy-900">0.00 g</div>
+        </div>
+      </div>
+      
+      <div class="mt-8">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-black text-navy-900">Active Gold Loans</h2>
+          <button onclick="switchTab('nav-loans')" class="text-xs font-bold text-blue-600">View All</button>
+        </div>
+        
+        <div id="home-loan-list" class="space-y-3">
+            <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOANS SCREEN -->
+  <div id="nav-loans" class="screen bg-slate-50">
+    <div class="gradient-header text-white pt-10 pb-12 px-5 text-center rounded-b-3xl">
+      <h1 class="text-2xl font-black">My Loan Ledger</h1>
+    </div>
+    
+    <div class="px-5 -mt-6 relative z-10">
+      <div class="bg-white rounded-xl card-shadow p-1.5 flex mb-6">
+        <button id="tab-btn-active" onclick="setLoanTab('active')" class="flex-1 py-2.5 bg-blue-50 text-blue-600 rounded-lg font-bold text-xs"><i class="fa fa-layer-group mr-1.5"></i> Active (<span id="count-active">0</span>)</button>
+        <button id="tab-btn-closed" onclick="setLoanTab('closed')" class="flex-1 py-2.5 text-gray-500 rounded-lg font-bold text-xs hover:bg-slate-50 transition"><i class="fa fa-check-circle mr-1.5"></i> Closed (<span id="count-closed">0</span>)</button>
+      </div>
+      
+      <div id="loans-container" class="space-y-4">
+         <!-- Populated via JS -->
+      </div>
+      
+    </div>
+    
+    <!-- Floating Action Button for New Loan -->
+    <button onclick="openNewLoanModal()" class="absolute bottom-24 right-5 w-14 h-14 gradient-header rounded-full text-white shadow-lg flex items-center justify-center text-xl hover:scale-105 transition z-30"><i class="fa fa-plus"></i></button>
+  </div>
+
+  <!-- CALCULATION SCREEN -->
+  <div id="nav-calculation" class="screen">
+    <div class="calc-header relative overflow-hidden">
+      <i class="fa fa-calculator absolute -right-4 -bottom-4 text-7xl text-white opacity-10"></i>
+      <h1 class="text-xl font-black relative z-10">Valuation Estimator</h1>
+      <p class="text-xs text-blue-200 mt-1 relative z-10">Check maximum eligible loan limits</p>
+    </div>
+    
+    <div class="px-5 -mt-8 relative z-10 space-y-5 pb-6">
+      
+      <!-- Top Card -->
+      <div class="bg-white rounded-2xl p-6 card-shadow text-center">
+        <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Live Market Value (Per Gram)</h2>
+        <div class="flex justify-between px-2 mb-4">
+          <div>
+            <div class="text-[10px] font-bold text-gray-400 uppercase mb-1">916 Gold</div>
+            <div class="text-xl font-black text-navy-900"><span class="text-gray-400 text-sm mr-0.5">₹</span>13,000</div>
+          </div>
+          <div class="w-px bg-slate-100"></div>
+          <div>
+            <div class="text-[10px] font-bold text-gray-400 uppercase mb-1">Ordinary Gold</div>
+            <div class="text-xl font-black text-navy-900"><span class="text-gray-400 text-sm mr-0.5">₹</span>10,000</div>
+          </div>
+        </div>
+        <div class="bg-blue-50 text-blue-700 text-[10px] font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2">
+          <i class="fa fa-shield-halved"></i> RBI APPROVED LTV: 75%
+        </div>
+      </div>
+      
+      <!-- Form Section -->
+      <div class="bg-white rounded-2xl p-6 card-shadow border border-slate-100">
+        <div class="mb-5 relative">
+           <label class="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Gold Purity Type</label>
+           <div onclick="document.getElementById('purityModal').classList.add('open')" class="w-full border-2 border-slate-100 rounded-xl p-3.5 text-sm text-gray-500 flex justify-between items-center cursor-pointer bg-slate-50 font-bold hover:bg-slate-100 transition">
+             <span id="puritySelectedText">Select Gold Purity</span>
+             <i class="fa fa-chevron-down text-xs text-gray-400"></i>
+           </div>
+        </div>
+        
+        <div class="mb-6">
+           <label class="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Weight (grams)</label>
+           <div class="relative">
+             <input id="calcWeight" type="number" class="w-full border-2 border-slate-100 rounded-xl pl-4 pr-10 py-3.5 text-sm text-navy-900 font-bold bg-slate-50 focus:outline-none focus:border-blue-500 transition" placeholder="e.g., 10.5" />
+             <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">g</span>
+           </div>
+        </div>
+        
+        <button onclick="computeLoanValue()" class="w-full gradient-header text-white font-bold py-4 rounded-xl shadow-md hover:shadow-lg hover:opacity-90 transition flex items-center justify-center gap-2">
+           CALCULATE ELIGIBILITY <i class="fa fa-arrow-right ml-1"></i>
+        </button>
+      </div>
+
+      <!-- Result Card (Hidden initially) -->
+      <div id="calc-result" class="bg-white rounded-2xl p-6 card-shadow border border-emerald-100 hidden bg-gradient-to-b from-white to-emerald-50">
+        <div class="text-center">
+          <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3"><i class="fa fa-check text-xl"></i></div>
+          <div class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Maximum Eligible Loan</div>
+          <div class="text-3xl font-black text-emerald-600" id="calc-result-amt">₹0</div>
+          <div class="text-xs text-slate-500 mt-3 font-medium px-4">Based on provided weight multiplied by rate, with standard 75% LTV applied.</div>
+          <button onclick="openNewLoanModal()" class="w-full bg-navy-900 text-white font-bold py-3 mt-4 rounded-lg text-sm shadow hover:bg-navy-800 transition">Proceed with Loan</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PROFILE SCREEN -->
+  <div id="nav-profile" class="screen">
+    <div class="gradient-header text-white pt-10 pb-20 px-6 flex items-center gap-4 relative rounded-b-3xl">
+      <div class="w-16 h-16 bg-white text-navy-900 rounded-full flex items-center justify-center font-black text-2xl shadow-inner">S</div>
+      <div>
+        <h1 class="text-2xl font-black">SHYAM.G</h1>
+        <div class="text-xs text-blue-200 mt-1 font-medium"><i class="fa fa-id-badge mr-1"></i> ID: ETPL92 · Perambur</div>
+      </div>
+    </div>
+    
+    <div class="px-5 -mt-10 relative z-10 space-y-4">
+      
+      <!-- KYC Details -->
+      <div class="bg-white rounded-xl card-shadow p-5 border border-slate-50">
+         <h3 class="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa fa-address-card"></i> KYC Information</h3>
+         <div class="space-y-3">
+           <div class="flex justify-between items-center"><div class="text-xs font-bold text-gray-400 uppercase">Age</div><div class="text-sm font-bold text-navy-900">39</div></div>
+           <div class="border-t border-slate-50"></div>
+           <div class="flex justify-between items-center"><div class="text-xs font-bold text-gray-400 uppercase">Date of Birth</div><div class="text-sm font-bold text-navy-900">1986-08-27</div></div>
+           <div class="border-t border-slate-50"></div>
+           <div class="flex justify-between items-center"><div class="text-xs font-bold text-gray-400 uppercase">Aadhar</div><div class="text-sm font-bold text-navy-900 tracking-widest text-right">5360 XXXX 6679</div></div>
+           <div class="border-t border-slate-50"></div>
+           <div class="flex justify-between items-center"><div class="text-xs font-bold text-gray-400 uppercase">PAN</div><div class="text-sm font-bold text-navy-900">AWY****99E</div></div>
+         </div>
+      </div>
+      
+      <!-- Nominee Info -->
+      <div class="bg-white rounded-xl card-shadow p-5 border border-slate-50">
+         <h3 class="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa fa-user-group"></i> Nominee Details</h3>
+         <div class="space-y-3">
+           <div class="flex justify-between items-center"><div class="text-xs font-bold text-gray-400 uppercase">Nominee Name</div><div class="text-sm font-bold text-navy-900">G Hemalatha-Mother</div></div>
+           <div class="border-t border-slate-50"></div>
+           <div class="flex justify-between items-center"><div class="text-xs font-bold text-gray-400 uppercase">Relation</div><div class="text-sm font-bold text-navy-900">S/o</div></div>
+         </div>
+      </div>
+
+       <!-- Security & App -->
+       <div class="bg-white rounded-xl card-shadow p-2 border border-slate-50">
+         <div onclick="showToast('PIN Change currently disabled')" class="p-3 flex items-center justify-between cursor-pointer hover:bg-slate-50 rounded-lg transition">
+           <div class="flex items-center gap-3"><i class="fa fa-lock text-gray-400"></i><span class="text-sm font-bold text-navy-900">Change PIN</span></div>
+           <i class="fa fa-chevron-right text-xs text-gray-300"></i>
+         </div>
+         <div class="border-t border-slate-50"></div>
+         <div onclick="showToast('Support Center offline')" class="p-3 flex items-center justify-between cursor-pointer hover:bg-slate-50 rounded-lg transition">
+           <div class="flex items-center gap-3"><i class="fa fa-headset text-gray-400"></i><span class="text-sm font-bold text-navy-900">Support Center</span></div>
+           <i class="fa fa-chevron-right text-xs text-gray-300"></i>
+         </div>
+       </div>
+      
+      <button onclick="logout()" class="w-full bg-red-50 text-red-600 font-bold py-3.5 mt-2 rounded-xl mb-6 shadow-sm border border-red-100 hover:bg-red-100 transition"><i class="fa fa-right-from-bracket mr-2"></i>Secure Log Out</button>
+    </div>
+  </div>
+
+  <!-- NOTIFICATION SCREEN -->
+  <div id="nav-notification" class="screen bg-slate-50">
+    <div class="px-5 pt-12 pb-4 flex items-center justify-between bg-white z-20 border-b border-slate-100 shadow-sm sticky top-0">
+      <h1 class="text-xl font-black text-navy-900">Notifications</h1>
+      <button onclick="clearNotifications()" class="text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full uppercase tracking-wider hover:bg-blue-100 transition">Mark All Read</button>
+    </div>
+    
+    <div id="notif-list" class="p-4 space-y-3">
+        <!-- Rendered by JS -->
+    </div>
+  </div>
+
+  <!-- BOTTOM NAVIGATION -->
+  <div id="bottom-nav">
+    <div class="nav-btn active" data-target="nav-home" onclick="switchTab('nav-home')"><i class="fa fa-house"></i><span>Home</span></div>
+    <div class="nav-btn" data-target="nav-loans" onclick="switchTab('nav-loans')"><i class="fa fa-file-invoice-dollar"></i><span>Loans</span></div>
+    <div class="nav-btn" data-target="nav-calculation" onclick="switchTab('nav-calculation')"><i class="fa fa-calculator"></i><span>Estimate</span></div>
+    <div class="nav-btn" data-target="nav-profile" onclick="switchTab('nav-profile')"><i class="fa fa-user"></i><span>Profile</span></div>
+    <div class="nav-btn relative" data-target="nav-notification" onclick="switchTab('nav-notification')">
+      <i class="fa fa-bell"></i><span>Alerts</span>
+      <span id="notif-badge" class="absolute top-1 right-2 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+    </div>
+  </div>
+  
+  <!-- MODAL: PURITY SELECTOR -->
+  <div id="purityModal" class="modal-overlay" onclick="closeModal('purityModal', event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <h3 class="text-navy-900 font-black mb-4">Select Gold Purity</h3>
+      <div class="space-y-3">
+         <button onclick="selectPurity('916 Gold', 13000)" class="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-xl font-bold text-navy-900 hover:border-blue-500 hover:bg-blue-50 transition flex justify-between items-center shadow-sm">
+            916 Gold <span class="text-xs text-blue-600 font-black">₹13,000/g</span>
+         </button>
+         <button onclick="selectPurity('Ordinary Gold', 10000)" class="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-xl font-bold text-navy-900 hover:border-blue-500 hover:bg-blue-50 transition flex justify-between items-center shadow-sm">
+            Ordinary Gold <span class="text-xs text-blue-600 font-black">₹10,000/g</span>
+         </button>
+      </div>
+      <button onclick="closeModal('purityModal')" class="mt-4 text-xs font-bold text-gray-400 hover:text-gray-600">Cancel</button>
+    </div>
+  </div>
+
+  <!-- MODAL: NEW LOAN REQUEST -->
+  <div id="newLoanModal" class="modal-overlay" onclick="closeModal('newLoanModal', event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3"><i class="fa fa-plus text-xl"></i></div>
+      <h3 class="text-navy-900 font-black mb-1">Request New Loan</h3>
+      <p class="text-xs text-gray-500 mb-5 font-medium leading-relaxed">Initiate a new Gold Loan request. Based on your inputs, your estimated appraisal will be logged directly into the system.</p>
+      
+      <div class="mb-5 text-left bg-slate-50 p-4 rounded-xl border border-slate-100">
+        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Requested Detail / Weight</label>
+        <input type="text" id="requestLoanGrams" class="w-full bg-transparent border-b-2 border-gray-300 font-black text-navy-900 text-lg focus:outline-none focus:border-blue-500 transition pb-1" placeholder="e.g. 24g • 916" />
+        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-4 mb-2">Requested Amount (₹)</label>
+        <input type="number" id="requestLoanAmt" class="w-full bg-transparent border-b-2 border-gray-300 font-black text-navy-900 text-lg focus:outline-none focus:border-blue-500 transition pb-1" placeholder="e.g. 150000" />
+      </div>
+
+      <div class="flex gap-2">
+         <button onclick="closeModal('newLoanModal')" class="flex-1 py-3 bg-slate-100 text-gray-600 font-bold rounded-lg text-sm hover:bg-slate-200 transition">Cancel</button>
+         <button onclick="submitLoanRequest()" class="flex-1 py-3 gradient-header text-white font-bold rounded-lg text-sm shadow hover:opacity-90 transition">Submit <i class="fa fa-check ml-1"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="mobile-toast"><i class="fa fa-info-circle text-blue-400 text-lg"></i> <span id="toast-text">Message</span></div>
+
+</div>
+
+<script>
+  /* ====== APP STATE ====== */
+  let state = {
+    isLoggedIn: false,
+    selectedPurityName: '',
+    selectedPurityRate: 0,
+    currentLoanTab: 'active',
+    loans: [
+      { id: 'GL-2024-001', amount: 84000, items: '24g • 916', date: '2024-10-12', status: 'closed' },
+      { id: 'GL-2024-089', amount: 99000, items: '32g • Ord', date: '2024-05-01', status: 'closed' }
+    ],
+    notifications: [
+      { title: 'Security Alert', message: 'New login detected from Chennai.', time: 'Just now', icon: 'fa-shield-halved', color: 'text-blue-500', bg: 'bg-blue-100' },
+      { title: 'Market Update', message: 'Gold rate increased to ₹13,000/g.', time: '2 hours ago', icon: 'fa-arrow-trend-up', color: 'text-emerald-500', bg: 'bg-emerald-100' },
+      { title: 'EMI Reminder', message: 'No active loans require EMI at this time.', time: '1 day ago', icon: 'fa-calendar', color: 'text-gray-500', bg: 'bg-gray-100' }
+    ]
+  };
+
+  /* ====== INITIALIZATION ====== */
+  window.onload = () => {
+    setTimeout(() => {
+      document.getElementById('screen-splash').style.opacity = '0';
+      setTimeout(() => {
+        document.getElementById('screen-splash').classList.remove('active');
+        document.getElementById('screen-login').classList.add('active');
+      }, 300);
+    }, 1500);
+  };
+
+  /* ====== NAVIGATION & MODALS ====== */
+  function login() {
+    showToast('Authentication Successful');
+    state.isLoggedIn = true;
+    document.getElementById('screen-login').style.opacity = '0';
+    setTimeout(() => {
+      document.getElementById('screen-login').classList.remove('active');
+      document.getElementById('bottom-nav').classList.add('active');
+      switchTab('nav-home');
+    }, 200);
+  }
+
+  function logout() {
+    showToast('Logged out successfully');
+    state.isLoggedIn = false;
+    document.querySelectorAll('.screen').forEach(el => { el.classList.remove('active'); el.style.opacity = ''; });
+    document.getElementById('bottom-nav').classList.remove('active');
+    document.getElementById('screen-login').classList.add('active');
+    document.getElementById('screen-login').style.opacity = '1';
+  }
+
+  function switchTab(tabId) {
+    document.querySelectorAll('.screen:not(#screen-splash):not(#screen-login)').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    document.querySelector(`.nav-btn[data-target="${tabId}"]`).classList.add('active');
+    renderUI();
+  }
+
+  function closeModal(id, e) {
+    if(e) e.stopPropagation();
+    document.getElementById(id).classList.remove('open');
+  }
+
+  let toastTimeout;
+  function showToast(msg) {
+    const toast = document.getElementById('mobile-toast');
+    document.getElementById('toast-text').textContent = msg;
+    toast.classList.remove('show');
+    void toast.offsetWidth; // Force reflow to reset transition
+    toast.classList.add('show');
+
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => toast.classList.remove('show'), 3000);
+  }
+
+  /* ====== CALCULATOR ====== */
+  function selectPurity(name, rate) {
+    state.selectedPurityName = name;
+    state.selectedPurityRate = rate;
+    document.getElementById('puritySelectedText').textContent = name;
+    document.getElementById('puritySelectedText').classList.replace('text-gray-500', 'text-navy-900');
+    closeModal('purityModal');
+  }
+
+  function computeLoanValue() {
+    const weight = parseFloat(document.getElementById('calcWeight').value);
+    if (!state.selectedPurityRate) return showToast('Please select Gold Purity first.');
+    if (!weight || weight <= 0) return showToast('Please enter a valid weight.');
+    
+    // Calculation: Weight * Rate * 75% LTV
+    const maxVal = Math.floor(weight * state.selectedPurityRate * 0.75);
+    document.getElementById('calc-result-amt').textContent = '₹' + maxVal.toLocaleString('en-IN');
+    document.getElementById('calc-result').classList.remove('hidden');
+    showToast('Eligibility calculated successfully');
+  }
+
+  /* ====== LOANS ====== */
+  function setLoanTab(tab) {
+    state.currentLoanTab = tab;
+    document.getElementById('tab-btn-active').className = tab === 'active' ? 'flex-1 py-2.5 bg-blue-50 text-blue-600 rounded-lg font-bold text-xs shadow-sm border border-blue-100 transition' : 'flex-1 py-2.5 text-gray-500 rounded-lg font-bold text-xs hover:bg-slate-100 transition';
+    document.getElementById('tab-btn-closed').className = tab === 'closed' ? 'flex-1 py-2.5 bg-blue-50 text-blue-600 rounded-lg font-bold text-xs shadow-sm border border-blue-100 transition' : 'flex-1 py-2.5 text-gray-500 rounded-lg font-bold text-xs hover:bg-slate-100 transition';
+    renderUI();
+  }
+
+  function openNewLoanModal() {
+    const modal = document.getElementById('newLoanModal');
+    
+    // Attempt auto-fill if calculator was used prior
+    const wgt = document.getElementById('calcWeight').value;
+    const est = document.getElementById('calc-result-amt').textContent.replace(/[^\d]/g, '');
+    if (wgt && state.selectedPurityName) {
+        document.getElementById('requestLoanGrams').value = `${wgt}g • ${state.selectedPurityName.substring(0,3)}`;
+    }
+    if (est && est > 0) {
+        document.getElementById('requestLoanAmt').value = est;
+    }
+    
+    modal.classList.add('open');
+  }
+
+  function submitLoanRequest() {
+    let reqAmt = document.getElementById('requestLoanAmt').value;
+    let reqDesc = document.getElementById('requestLoanGrams').value;
+    
+    if(!reqAmt) reqAmt = 0;
+    else reqAmt = parseInt(reqAmt);
+    
+    if(!reqDesc) reqDesc = 'Awaiting Assessment';
+    
+    const newId = 'GL-2026-0' + (state.loans.length + 1) + Math.floor(Math.random() * 9);
+    
+    state.loans.unshift({
+      id: newId,
+      amount: reqAmt,
+      items: reqDesc,
+      date: new Date().toISOString().split('T')[0],
+      status: 'active'
+    });
+    
+    state.notifications.unshift({ 
+      title: 'Loan Request Filed', 
+      message: `Request ${newId} sent to branch manager.`, 
+      time: 'Just now', 
+      icon: 'fa-file-signature', 
+      color: 'text-navy-900', 
+      bg: 'bg-slate-100' 
+    });
+    
+    closeModal('newLoanModal');
+    showToast('Loan Request Successfully Submitted!');
+    
+    // Clear modal fields
+    document.getElementById('requestLoanAmt').value = '';
+    document.getElementById('requestLoanGrams').value = '';
+    
+    if(document.getElementById('nav-calculation').classList.contains('active')) {
+       switchTab('nav-loans');
+       setLoanTab('active');
+    } else {
+       renderUI();
+    }
+  }
+
+  /* ====== NOTIFICATIONS ====== */
+  function clearNotifications() {
+    state.notifications = [];
+    renderUI();
+    showToast('All notifications erased');
+  }
+
+  /* ====== RENDER ENGINE ====== */
+  function renderUI() {
+    // Basic array partitioning
+    const activeLoans = state.loans.filter(l => l.status === 'active');
+    const closedLoans = state.loans.filter(l => l.status === 'closed');
+    const totalActiveAmt = activeLoans.reduce((sum, l) => sum + (typeof l.amount === 'number' ? l.amount : 0), 0);
+    
+    // Dashboard metric updates
+    document.getElementById('ui-home-active-count').textContent = activeLoans.length;
+    document.getElementById('ui-home-active-amount').textContent = '₹' + totalActiveAmt.toLocaleString('en-IN');
+    
+    document.getElementById('count-active').textContent = activeLoans.length;
+    document.getElementById('count-closed').textContent = closedLoans.length;
+    
+    let w = 0;
+    activeLoans.forEach(l => { 
+       const wgtMatch = l.items.match(/(\d+(\.\d+)?)g/);
+       if (wgtMatch) w += parseFloat(wgtMatch[1]);
+    });
+    document.getElementById('ui-home-weight').textContent = w.toFixed(2) + ' g';
+
+    // Badge Notification Tracker
+    document.getElementById('notif-badge').style.display = state.notifications.length > 0 ? 'block' : 'none';
+
+    // Home active loan list block
+    const hl = document.getElementById('home-loan-list');
+    if (activeLoans.length === 0) {
+      hl.innerHTML = `<div class="bg-white border border-slate-100 shadow-sm rounded-xl p-6 text-center mt-2"><i class="fa fa-folder-open text-4xl text-slate-200 mb-3 block"></i><div class="text-sm font-bold text-gray-500">No active loan records found.</div><div class="text-xs text-blue-500 font-bold mt-3 cursor-pointer" onclick="openNewLoanModal()">+ Start a new request</div></div>`;
+    } else {
+      hl.innerHTML = activeLoans.slice(0,3).map(l => `<div class="bg-white border border-slate-100 rounded-xl p-4 card-shadow flex items-center justify-between"><div class="flex items-center gap-3"><div class="w-10 h-10 ${l.items==='Awaiting Assessment' ? 'bg-orange-50 text-orange-500' : 'bg-emerald-50 text-emerald-600'} rounded-full flex items-center justify-center"><i class="fa fa-file-invoice-dollar text-lg"></i></div><div><div class="text-sm font-black text-navy-900">${l.id}</div><div class="text-[10px] font-bold text-gray-500 tracking-wider">${l.items}</div></div></div><div class="text-right"><div class="text-sm font-black text-emerald-600">${typeof l.amount === 'number' ? '₹'+l.amount.toLocaleString('en-IN') : l.amount}</div><div class="text-[9px] ${l.items==='Awaiting Assessment' ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'} px-2 py-0.5 mt-0.5 rounded font-bold uppercase inline-block">${l.items==='Awaiting Assessment' ? 'Pending' : 'Active'}</div></div></div>`).join('');
+    }
+
+    // Loans Tab View Block
+    const lt = document.getElementById('loans-container');
+    const targetArr = state.currentLoanTab === 'active' ? activeLoans : closedLoans;
+    if (targetArr.length === 0) {
+      lt.innerHTML = `<div class="mt-8 bg-white border border-slate-100 card-shadow rounded-xl p-8 text-center flex flex-col items-center"><div class="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100"><i class="fa fa-box-open text-2xl"></i></div><div class="text-sm font-bold text-gray-500">You currently have no <span class="text-navy-900">${state.currentLoanTab.charAt(0).toUpperCase() + state.currentLoanTab.slice(1)}</span> gold loans.</div><span class="text-gray-400 text-[10px] mt-2 block font-medium uppercase tracking-widest">(History may take 24hr to sync)</span></div>`;
+    } else {
+      lt.innerHTML = targetArr.map(l => `<div class="bg-white border border-slate-100 rounded-xl p-5 card-shadow mb-3"><div class="flex justify-between items-center mb-4"><div class="text-sm font-black text-navy-900">${l.id}</div><div class="text-[10px] font-bold px-2.5 py-1 rounded bg-slate-50 text-slate-500 uppercase tracking-widest border border-slate-100">${l.date}</div></div><div class="flex justify-between items-end"><div class="text-xs font-bold text-gray-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100"><i class="fa fa-gem text-blue-500 mr-2"></i>${l.items}</div><div class="text-xl font-black ${state.currentLoanTab==='active'?'text-emerald-500':'text-gray-500'}">${typeof l.amount === 'number' && l.amount > 0 ? '₹'+l.amount.toLocaleString('en-IN') : 'TBD'}</div></div></div>`).join('');
+    }
+
+    // Notifs Tab View Block
+    const nl = document.getElementById('notif-list');
+    if (state.notifications.length === 0) {
+      nl.innerHTML = `<div class="flex flex-col items-center justify-center p-8 mt-12 text-center"><div class="w-24 h-24 bg-slate-50 text-slate-200 border border-slate-100 rounded-full flex items-center justify-center text-4xl mb-6 shadow-inner"><i class="fa fa-envelope-open"></i></div><h2 class="text-lg font-black text-navy-900 mb-1">You are all caught up!</h2><p class="text-xs font-medium text-gray-500 leading-relaxed max-w-[250px]">No new notifications. We'll alert you here when there's an update on your loan.</p></div>`;
+    } else {
+      nl.innerHTML = state.notifications.map(n => `<div class="bg-white rounded-xl p-4 card-shadow border justify-between border-slate-50 flex items-start gap-4 hover:bg-slate-50 transition cursor-pointer"><div class="w-10 h-10 ${n.bg} ${n.color} flex-shrink-0 rounded-full flex items-center justify-center"><i class="fa ${n.icon} text-lg"></i></div><div class="flex-1"><div class="flex items-center justify-between mb-1"><div class="text-sm font-bold text-navy-900">${n.title}</div><div class="w-2 h-2 bg-blue-500 rounded-full shadow-sm"></div></div><p class="text-[11px] font-medium text-gray-500 leading-relaxed">${n.message}</p><div class="text-[9px] font-bold text-gray-400 mt-2.5 uppercase tracking-widest"><i class="fa fa-clock mr-1"></i>${n.time}</div></div></div>`).join('');
+    }
+  }
+</script>
+</body>
+</html>
